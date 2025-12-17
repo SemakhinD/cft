@@ -6,6 +6,8 @@
 #define TRUE 1
 #define FALSE 0
 
+#define MAX_LENGTH 100000
+
 typedef struct StatData { 
     long  id; 
     int   count; 

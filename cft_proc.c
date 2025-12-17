@@ -1,6 +1,4 @@
 
-#define _CRT_SECURE_NO_WARNINGS
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,7 +45,7 @@ void JoinDumpInternal(StatData *data, size_t count, StatData *out_data, size_t *
 
 int JoinDump(StatData *data1, size_t count1, StatData *data2, size_t count2, StatData **out_data, size_t *out_count)
 {
-    if (!out_data || !out_count)
+    if ((!data1 && count1 > 0) || (!data2 && count2 > 0) || !out_data || !out_count)
     {
         errno = EINVAL;
         return -1;
@@ -60,10 +58,17 @@ int JoinDump(StatData *data1, size_t count1, StatData *data2, size_t count2, Sta
         *out_count = 0;
         return 0;
     }
+    else if (total_count > MAX_LENGTH)
+    {
+        fprintf(stderr, "Число записей в объединенном массиве не должно превышать %d!\n", MAX_LENGTH);
+        errno = EINVAL;
+        return -1;
+    }
 
     // Выделяем память с расчетом на то, что у каждой записи уникальный id
-    StatData *local_out_data = malloc(total_count * sizeof(StatData));
-    if (!local_out_data) {
+    StatData *local_out_data = malloc(total_count * sizeof(*local_out_data));
+    if (!local_out_data)
+    {
         errno = ENOMEM;
         return -1;
     }
@@ -85,8 +90,11 @@ int compare_data(const void *a, const void *b) {
 
 int SortDump(StatData *data, size_t count)
 {
-    if (!data)
-        return count == 0 ? 0 : -1;
+    if (!data && count > 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
 
     if (count > 1)
     {
@@ -105,16 +113,16 @@ int PrintDump(StatData *data, size_t count, size_t count_print)
         return -1;
     }
 
-    printf("|        id        |    count    |   cost    | primary | mode |\n");
-    printf("|------------------|-------------|-----------|---------|------|\n");
+    printf("|        id        |    count    |    cost    | primary | mode |\n");
+    printf("|------------------|-------------|------------|---------|------|\n");
     for (size_t i = 0; i < (count_print < count ? count_print : count); i++)
     {
         char c = (data[i].primary ? 'y' : 'n');
-        printf("| %16lX | %11d | %9.3e |    %c    | %d%d%d  | \n", 
+        printf("| %16lX | %11d | %10.3e |    %c    | %d%d%d  | \n", 
             data[i].id, data[i].count, data[i].cost, c, 
             (data[i].mode >> 2) & 1, (data[i].mode >> 1) & 1, data[i].mode & 1);
     }
-    printf("|------------------|-------------|-----------|---------|------|\n");
+    printf("|------------------|-------------|------------|---------|------|\n");
 
     return 0;
 }
@@ -123,7 +131,7 @@ int main(int argc, char* argv[])
 {
     if (argc != 4)
     {
-        printf("Usage:\n  %s <input_path1> <input_path2> <output_path>\n", argv[0]);
+        printf("Использование:\n  %s <файл_1> <файл_2> <выходной_файл>\n", argv[0]);
         return -1;
     }
 
@@ -137,63 +145,48 @@ int main(int argc, char* argv[])
     size_t in_count_2 = 0;
     size_t out_count = 0;
 
-    int ret = 0;
+    int ret = -1;
     do
     {
         if (LoadDump(in_path_1, &in_data_1, &in_count_1))
         {
             fprintf(stderr, "Ошибка чтения массива записей из файла '%s': %s\n", in_path_1, strerror(errno));
-            ret = -1;
             break;
         }
 
         if (LoadDump(in_path_2, &in_data_2, &in_count_2))
         {
             fprintf(stderr, "Ошибка чтения массива записей из файла '%s': %s\n", in_path_2, strerror(errno));
-            ret = -1;
             break;
         }
-        
-        /////////////////////////////////
-        if (PrintDump(in_data_1, in_count_1, 10))
-        {
-            ret = -1;
-            break;
-        }
-        if (PrintDump(in_data_2, in_count_2, 10))
-        {
-            ret = -1;
-            break;
-        }
-        /////////////////////////////////
 
         if (JoinDump(in_data_1, in_count_1, in_data_2, in_count_2, &out_data, &out_count))
         {
             fprintf(stderr, "Ошибка объединения двух массивов: %s\n", strerror(errno));
-            ret = -1;
             break;
         }
 
         if (SortDump(out_data, out_count))
         {
             fprintf(stderr, "Ошибка сортировки массива: %s\n", strerror(errno));
-            ret = -1;
             break;
         }
 
         if (StoreDump(out_path, out_data, out_count))
         {
-            fprintf(stderr, "Ошибка записи итогового массива в файл '%s': %s\n", out_path, strerror(errno));
-            ret = -1;
+            fprintf(stderr, "Ошибка записи отсортированного массива в файл '%s': %s\n", out_path, strerror(errno));
             break;
         }
 
         if (PrintDump(out_data, out_count, 10))
         {
             fprintf(stderr, "Ошибка печати записей в виде таблицы: %s\n", strerror(errno));
-            ret = -1;
             break;
         }
+
+        printf("Данные обработаны успешно!\n");
+
+        ret = 0;
     } while (0);
     
     free(in_data_1);

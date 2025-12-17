@@ -20,17 +20,25 @@ int StoreDump(char *path, const StatData *data, size_t count)
         return -1;
     }
 
+    if (count > MAX_LENGTH)
+    {
+        fprintf(stderr, "Число записей в файле '%s' не должно превышать %d!\n", path, MAX_LENGTH);
+        errno = EINVAL;
+        return -1;
+    }
+
     FILE *fp = fopen(path, "wb");
-    if (!fp) {
-        int ret = errno;
+    if (!fp)
+    {
+        int err = errno;
         fprintf(stderr, "Ошибка открытия файла '%s': %s\n", path, strerror(errno));
-        errno = ret;
+        errno = err;
         return -1;
     }
 
     unsigned long long num = (unsigned long long)count;
     if ((fwrite(&num, sizeof(num), 1, fp) != 1) ||
-        (count > 0 && fwrite(data, sizeof(StatData), count, fp) != count))
+        (count > 0 && fwrite(data, sizeof(*data), count, fp) != count))
     {
         int err = errno;
         fclose(fp);
@@ -51,48 +59,50 @@ int LoadDump(char *path, StatData **data, size_t *count)
         return -1;
     }
 
-    int ret = 0;
+    int err = 0;
 
     FILE *fp = fopen(path, "rb");
-    if (!fp) {
-        ret = errno;
+    if (!fp)
+    {
+        err = errno;
         fprintf(stderr, "Ошибка открытия файла '%s': %s\n", path, strerror(errno));
-        errno = ret;
+        errno = err;
         return -1;
     }
 
     do
     {
         unsigned long long num = 0;
-        if (fread(&num, sizeof(num), 1, fp) != 1) {
-            ret = errno;
+        if (fread(&num, sizeof(num), 1, fp) != 1)
+        {
+            err = errno;
             break;
         }
 
-        if (num == 0) {
+        if (num == 0)
+        {
             *data = NULL;
             *count = 0;
             break;
         }
-
-        if (num > 100000)
+        else if (num > MAX_LENGTH)
         {
-            ret = EINVAL;
-            fprintf(stderr, "Число записей в файле '%s' не должно превышать 100000!\n", path);
-            errno = ret;
-            break;
-        }    
-
-        StatData *buf = malloc(num * sizeof(StatData));
-        if (!buf) {
-            errno = ret = ENOMEM;
+            err = EINVAL;
+            fprintf(stderr, "Число записей в файле '%s' не должно превышать %d!\n", path, MAX_LENGTH);
             break;
         }
 
-        if (fread(buf, sizeof(StatData), num, fp) != num) {
-            ret = errno;
+        StatData *buf = malloc(num * sizeof(*buf));
+        if (!buf)
+        {
+            err = ENOMEM;
+            break;
+        }
+
+        if (fread(buf, sizeof(*buf), num, fp) != num)
+        {
+            err = errno;
             free(buf);
-            errno = ret;
             break;
         }
 
@@ -102,5 +112,8 @@ int LoadDump(char *path, StatData **data, size_t *count)
 
     fclose(fp);
 
-    return ret ? -1 : 0;
+    if (err)
+        errno = err;
+
+    return err ? -1 : 0;
 }
