@@ -111,17 +111,40 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    if (sizeof(case_1_out)/sizeof(*case_1_out) == count_out &&
-        memcmp(case_1_out, data_out, sizeof(case_1_out)) == 0)
+    size_t count_min = sizeof(case_1_out)/sizeof(*case_1_out);
+
+    if (count_min < count_out)
+        printf("Тесты не покрывают все записи в файле!\n");
+    else if (count_min > count_out)
+        printf("Тестов больше чем записей в файле!\n");
+
+    count_min = count_min < count_out ? count_min : count_out;
+    size_t count_pass = 0;
+    size_t count_fail = 0;
+
+    for (size_t i = 0; i < count_min; i++)
     {
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        double val = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+        if (memcmp(&case_1_out[i], data_out + i, sizeof(*case_1_out)))
+        {
+            if ((count_pass + count_fail) < TEST_PRINT_COUNT)
+                fprintf(stderr, "Тест %ld не пройден!\n", i + 1);
+            count_fail++;
+        }
+        else
+        {
+            if ((count_pass + count_fail) < TEST_PRINT_COUNT)
+                printf("Тест %ld пройден!\n", i + 1);
+            count_pass++;
+        }
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    double val = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+
+    if (count_fail == 0)
         printf("Тесты выполнены успешно!\nВремя выполнения: %.3f секунд\n", val);
-    }
     else
-    {
-        fprintf(stderr, "Ошибка прохождения тестов!\n");
-    }
+        printf("Обнаружены ошибки при выполнении тестов!\n");
 
     free(data_out);
 

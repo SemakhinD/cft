@@ -113,16 +113,16 @@ int PrintDump(StatData *data, size_t count, size_t count_print)
         return -1;
     }
 
-    printf("|        id        |    count    |    cost    | primary | mode |\n");
-    printf("|------------------|-------------|------------|---------|------|\n");
+    printf("|    №   |        id        |    count    |    cost    | primary | mode |\n");
+    printf("|--------|------------------|-------------|------------|---------|------|\n");
     for (size_t i = 0; i < (count_print < count ? count_print : count); i++)
     {
         char c = (data[i].primary ? 'y' : 'n');
-        printf("| %16lX | %11d | %10.3e |    %c    | %d%d%d  | \n", 
-            data[i].id, data[i].count, data[i].cost, c, 
+        printf("| %6ld | %16lX | %11d | %10.3e |    %c    | %d%d%d  | \n", 
+            i + 1, data[i].id, data[i].count, data[i].cost, c, 
             (data[i].mode >> 2) & 1, (data[i].mode >> 1) & 1, data[i].mode & 1);
     }
-    printf("|------------------|-------------|------------|---------|------|\n");
+    printf("|--------|------------------|-------------|------------|---------|------|\n");
 
     return 0;
 }
@@ -178,7 +178,7 @@ int main(int argc, char* argv[])
             break;
         }
 
-        if (PrintDump(out_data, out_count, 10))
+        if (PrintDump(out_data, out_count, TEST_PRINT_COUNT))
         {
             fprintf(stderr, "Ошибка печати записей в виде таблицы: %s\n", strerror(errno));
             break;

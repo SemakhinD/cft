@@ -7,6 +7,7 @@
 #define FALSE 0
 
 #define MAX_LENGTH 100000
+#define TEST_PRINT_COUNT 10
 
 typedef struct StatData { 
     long  id; 
